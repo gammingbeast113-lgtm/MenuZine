@@ -55,7 +55,7 @@ header{display:flex;justify-content:space-between;align-items:center;gap:18px;co
 .empty{padding:35px;text-align:center;color:#887d70;background:#faf6ef;border-radius:10px}.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#27221d;color:#fff;padding:12px 18px;border-radius:99px;font-size:12px;box-shadow:0 10px 25px #0003;z-index:100;display:none}
 @media(max-width:700px){.shell{padding:14px 12px 35px}.spread{min-height:440px}.cover,.backcover{min-height:440px}.page{padding:15px 11px}.page-title{font-size:25px}.items{gap:8px}.food-img{height:85px;font-size:34px}.item-info{padding:7px}.item-name{font-size:12px}.item-desc{font-size:9px}.item-foot{align-items:flex-start;flex-direction:column}.add{width:100%}.book-controls{flex-wrap:wrap}.book-controls .page-dots{order:3;width:100%;justify-content:center}.intro{align-items:flex-start;flex-direction:column}.header-right{gap:6px}.mode{font-size:10px;padding:7px}.cart-btn{padding:9px 11px;font-size:12px}}
 @media(max-width:390px){.cover-logo{letter-spacing:-3px}.items{gap:6px}.food-img{height:70px}.item-desc{display:none}.item-name{min-height:30px}}
-</style>
+.sheet.dragging{animation:none!important;transition:none!important;filter:drop-shadow(-18px 8px 16px #0004)}.sheet.settle{transition:transform .42s cubic-bezier(.2,.72,.18,1),filter .42s ease;animation:none!important}.sheet.dragging .sheet-front:after{opacity:1}.sheet.dragging .sheet-back:after{opacity:.45}.book.dragging{cursor:grabbing}@media(prefers-reduced-motion:reduce){.sheet.anim{animation-duration:.35s}.sheet.settle{transition-duration:.2s}}</style>
 </head>
 <body>
 <div class="shell">
@@ -122,10 +122,15 @@ $('next').onclick=()=>turn(page+1);$('previous').onclick=()=>turn(page-1);
 $('dots').onclick=e=>{let b=e.target.closest('[data-p]');if(b)turn(+b.dataset.p)};
 $('auto').onchange=e=>{auto=e.target.checked;paused=false;flipProgress=0;if(auto)restartAuto();else clearInterval(autoTimer)};
 $('book').addEventListener('mouseenter',pauseAuto);$('book').addEventListener('mouseleave',()=>paused=false);
+// Direct pointer drag: page follows the hand and settles smoothly on release.
+let drag=null;
+function prepareDragSheet(){const s=$('turnSheet');$('sheetFront').innerHTML=pageHTML(page,'right');$('sheetBack').innerHTML=pageHTML(Math.min(page+1,menu.length-1),'left');s.style.display='block';s.classList.remove('anim','settle','dragging');s.style.transform='rotateY(0deg)'}
+$('book').addEventListener('pointerdown',e=>{if(e.button!==undefined&&e.button!==0)return;if(e.target.closest('[data-add],[data-jump],[data-nextpage]'))return;if(page>=menu.length-1||flipBusy)return;const r=$('spread').getBoundingClientRect();if(e.clientX-r.left<r.width*.48)return;pauseAuto();drag={startX:e.clientX,progress:0};prepareDragSheet();$('book').classList.add('dragging');try{$('book').setPointerCapture(e.pointerId)}catch{}});
+$('book').addEventListener('pointermove',e=>{if(!drag)return;const r=$('spread').getBoundingClientRect(),dx=e.clientX-drag.startX;drag.progress=Math.max(0,Math.min(1,-dx/(r.width*.5)));const s=$('turnSheet');s.classList.add('dragging');s.style.transform='rotateY('+(-180*drag.progress)+'deg) skewY('+(-drag.progress*2.2)+'deg)';s.style.filter='drop-shadow('+(-12*drag.progress)+'px 5px '+(16*drag.progress)+'px #0005)';$('sheetFront').style.filter='brightness('+(1-drag.progress*.2)+')'});
+function finishDrag(e){if(!drag)return;const turnIt=drag.progress>.32||(e.clientX-drag.startX)<-70,old=page,s=$('turnSheet');s.classList.remove('dragging');s.classList.add('settle');s.style.filter='';s.style.transform=turnIt?'rotateY(-180deg)':'rotateY(0deg)';$('book').classList.remove('dragging');drag=null;setTimeout(()=>{s.classList.remove('settle');s.style.transform='';s.style.display='none';$('sheetFront').style.filter='';if(turnIt&&old<menu.length-1){page=old+1;renderSpread()}flipBusy=false;if(auto&&!paused)restartAuto()},450)}
+$('book').addEventListener('pointerup',finishDrag);$('book').addEventListener('pointercancel',e=>{if(drag){drag.progress=0;finishDrag({clientX:drag.startX})}});
 $('book').addEventListener('touchstart',e=>{touchX=e.touches[0].clientX;touchY=e.touches[0].clientY},{passive:true});
-$('book').addEventListener('touchend',e=>{let dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY;if(Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.2){turn(page+(dx<0?1:-1));pauseAuto()}},{passive:true});
-$('book').addEventListener('mousedown',e=>{touchX=e.clientX;touchY=e.clientY});
-$('book').addEventListener('mouseup',e=>{let dx=e.clientX-touchX,dy=e.clientY-touchY;if(Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.2){turn(page+(dx<0?1:-1));pauseAuto()}});
+$('book').addEventListener('touchend',e=>{let dx=e.changedTouches[0].clientX-touchX,dy=e.changedTouches[0].clientY-touchY;if(!drag&&Math.abs(dx)>55&&Math.abs(dx)>Math.abs(dy)*1.2){turn(page+(dx<0?1:-1));pauseAuto()}},{passive:true});
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight')turn(page+1);if(e.key==='ArrowLeft')turn(page-1)});
 function addItem(item,mods={}){cart.push({id:Date.now()+Math.random(),name:item[0],price:+item[3],emoji:item[1],mods,qty:1});renderCart();toast('Added to basket');}
 function customize(item){pauseAuto();let mains=menu[2].items.includes(item)||menu[1].items.includes(item);if(!mains){addItem(item);return}
