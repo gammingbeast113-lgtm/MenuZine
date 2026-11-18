@@ -3,5 +3,5 @@
 // Never put a secret key or service_role key in this file.
 window.MENUZINE_SUPABASE = {
   url: "https://rcsjmlbvoghkngwjcvld.supabase.co",
-  publishableKey: "PASTE_YOUR_SUPABASE_PUBLISHABLE_KEY"
+  publishableKey: "sb_publishable_psLc_5xqwxrmaPcVmZc4WQ_T27fMpsS"
 };
